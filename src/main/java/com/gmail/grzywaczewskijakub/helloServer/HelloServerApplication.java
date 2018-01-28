@@ -1,5 +1,6 @@
 package com.gmail.grzywaczewskijakub.helloServer;
 
+import io.vavr.collection.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
@@ -12,8 +13,7 @@ import reactor.ipc.netty.http.server.HttpServer;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+
 
 import static org.springframework.web.reactive.function.BodyInserters.fromObject;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
@@ -24,12 +24,12 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.r
 
 public class HelloServerApplication {
 
-    private final List<Message> messages = new ArrayList<>();
+    private List<Message> messages = List.empty();
 
     private HelloServerApplication() {
-        messages.add(new Message("test content 1", "Auden"));
-        messages.add(new Message("test content 2", "Buden"));
-        messages.add(new Message("test content 3", "Cuden"));
+        addMessage(new Message("test content 1", "Auden"));
+        addMessage(new Message("test content 2", "Buden"));
+        addMessage(new Message("test content 3", "Cuden"));
     }
 
     private void serve() {
@@ -47,10 +47,10 @@ public class HelloServerApplication {
         return request -> {
             Mono<Message> postMessage = request.bodyToMono(Message.class);
             return postMessage.flatMap(message -> {
-                messages.add(message);
+                addMessage(message);
                 return ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body(fromObject(messages));
+                        .body(fromObject(messages.toJavaList()));
             });
         };
     }
@@ -59,7 +59,7 @@ public class HelloServerApplication {
         return request -> {
             return ServerResponse.ok()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(fromObject(messages));
+                    .body(fromObject(getMessages().toJavaList()));
         };
     }
 
@@ -72,6 +72,14 @@ public class HelloServerApplication {
                     .contentType(MediaType.TEXT_PLAIN)
                     .body(fromObject(myFormatter.format(time)));
         };
+    }
+
+    private synchronized void addMessage(Message message) {
+        messages = messages.append(message);
+    }
+
+    private synchronized List<Message> getMessages() {
+        return this.messages;
     }
 
     public static void main(String[] args) {
